@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import config from './config.mjs';
 
-const columns = ['QualifiedApiName', 'Label', 'Length', 'DataType', 'IsNillable', 'IsIndexed'];
+const columns = ['Label', 'QualifiedApiName', 'Length', 'DataType', 'IsNillable', 'IsIndexed', 'EntityDefinition.Label'];
 
 function getObjectDef({objectName, alias}) {
   const result = execSync(`sf data query --query "SELECT ${columns.join(',')} FROM FieldDefinition WHERE EntityDefinition.QualifiedApiName = '${objectName}'" --json --target-org "${alias}"`).toString();
@@ -31,13 +31,15 @@ if(config.mode !== 'onlymarkdown') {
 
 // Markdownの作成
 const body = config.objectNames.map((objectName) => {
+  const displayColumns = columns.slice(0, -1);
   const filePath = getObjectDefFilePath(objectName);
   const records = JSON.parse(fs.readFileSync(filePath, 'utf-8')).result.records;
-  const rows = records.map((record) => columns.map((column) => record[column]).join(' | '));
+  const rows = records.map((record) => displayColumns.map((column) => record[column]).join(' | '));
+  const objectLabel = records[0].EntityDefinition.Label;
   const markdown = `
-## ${objectName} 
-${columns.join(' | ')}
-${columns.map(v => '----').join('|')}
+## ${objectLabel}(${objectName}) 
+${displayColumns.join(' | ')}
+${displayColumns.map(v => '----').join('|')}
 ${rows.join('\n')}
 `.trim();
   return markdown;
@@ -46,6 +48,7 @@ const markdown = `
 # オブジェクト定義  
 出力日時:${new Date().toLocaleString()}  
 環境:${config.alias}  
+
 ${body}
 `.trim();
 
